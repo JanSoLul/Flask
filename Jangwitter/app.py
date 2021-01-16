@@ -3,7 +3,6 @@ from flask import Flask, jsonify, request, current_app
 # request를 통해 사용자가 HTTP 요청을 통해 전송한 JSON 데이터를 읽어 들일 수 있게 된다.
 from flask.json import JSONEncoder
 from sqlalchemy import create_engine, text
-import sys
 
 
 class CustomJSONEncoder(JSONEncoder):
@@ -14,16 +13,6 @@ class CustomJSONEncoder(JSONEncoder):
         return JSONEncoder.default(self, obj)
 
 
-def create_app(test_config=None):
-    app = Flask(__name__)
-
-    if test_config is None:
-        app.config.from_pyfile("config.py")
-    else:
-        app.config.update(test_config)
-
-    database = create_engine(app.config['DB_URL'], encoding = 'utf-8', max_overflow=0)
-    app.database = database
 
     return app
 
@@ -116,67 +105,75 @@ def get_timeline(user_id):
     } for tweet in timeline]
 
 
-app = create_app()
+def create_app(test_config=None):
+    app = Flask(__name__)
 
-@app.route("/ping", methods=['GET'])
-def ping():
-    return "pong"
+    if test_config is None:
+        app.config.from_pyfile("config.py")
+    else:
+        app.config.update(test_config)
 
-
-@app.route("/sign-up", methods=['POST'])
-def sign_up():
-    new_user = request.json
-    new_user_id = insert_user(new_user)
-    new_user = get_user(new_user_id)
-
-    return jsonify(new_user)
-
-@app.route('/tweet', methods=['POST'])
-def tweet():
-    user_tweet = request.json
-    tweet = user_tweet['tweet']
-
-    if len(tweet) > 300:
-        return '300자를 초과했습니다.', 400
-
-    insert_tweet(user_tweet)
-
-    return '', 200
+    database = create_engine(app.config['DB_URL'], encoding = 'utf-8', max_overflow=0)
+    app.database = database
 
 
-@app.route('/follow', methods=['POST'])
-def follow():
-    payload = request.json
-    insert_follow(payload)
-
-    return '', 200
+    @app.route("/ping", methods=['GET'])
+    def ping():
+        return "pong"
 
 
-@app.route('/unfollow', methods=['POST'])
-def unfollow():
-    payload = request.json
-    insert_unfollow(payload)
+    @app.route("/sign-up", methods=['POST'])
+    def sign_up():
+        new_user = request.json
+        new_user_id = insert_user(new_user)
+        new_user = get_user(new_user_id)
 
-    return '', 200
+        return jsonify(new_user)
+
+    @app.route('/tweet', methods=['POST'])
+    def tweet():
+        user_tweet = request.json
+        tweet = user_tweet['tweet']
+
+        if len(tweet) > 300:
+            return '300자를 초과했습니다.', 400
+
+        insert_tweet(user_tweet)
+
+        return '', 200
 
 
-@app.route('/timeline/<int:user_id>', methods=['GET'])
-def timeline(user_id):
-    return jsonify({
-        'user_id' : user_id,
-        'timeline' : get_timeline(user_id)
-    })
+    @app.route('/follow', methods=['POST'])
+    def follow():
+        payload = request.json
+        insert_follow(payload)
+
+        return '', 200
 
 
-@app.route('/check-user', methods=['GET'])
-def checkUser():
-    ret = []
-    for i in range(1, 10):
-        tmp = get_user(i)
-        if tmp is not None:
-            ret.append(tmp)
-    return jsonify({
-        'ret' : ret
-    })
-    return ret
+    @app.route('/unfollow', methods=['POST'])
+    def unfollow():
+        payload = request.json
+        insert_unfollow(payload)
 
+        return '', 200
+
+
+    @app.route('/timeline/<int:user_id>', methods=['GET'])
+    def timeline(user_id):
+        return jsonify({
+            'user_id' : user_id,
+            'timeline' : get_timeline(user_id)
+        })
+
+
+    @app.route('/check-user', methods=['GET'])
+    def checkUser():
+        ret = []
+        for i in range(1, 10):
+            tmp = get_user(i)
+            if tmp is not None:
+                ret.append(tmp)
+        return jsonify({
+            'ret' : ret
+        })
