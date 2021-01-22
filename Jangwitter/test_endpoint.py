@@ -23,13 +23,22 @@ def setup_function():
         b"test password",
         bcrypt.gensalt()
     )
-    new_user = {
-        'id' : 1,
-        'name' : '테스트',
-        'email' : 'test@gmail.com',
-        'profile' : 'unit test profile',
-        'hashed_password' : hashed_password
-    }
+    new_user = [
+        {
+            'id' : 1,
+            'name' : '테스트',
+            'email' : 'test@gmail.com',
+            'profile' : 'unit test profile',
+            'hashed_password' : hashed_password
+        }, {
+            'id' : 2,
+            'name' : 'Test2',
+            'email' : 'test2@gmail.com',
+            'profile' : 'unit test prodile2',
+            'hashed_password' : hashed_password
+        }
+    ]
+
     database.execute(text("""
         INSERT INTO users (
             id,
@@ -46,6 +55,17 @@ def setup_function():
         )
     """), new_user)
 
+    # Test 2의 트윗 미리 생성
+    database.execute(text("""
+        INSERT INTO tweets (
+            user_id,
+            tweet
+        ) VALUES (
+            2,
+            "Hello World!"
+        )
+    """))
+
 
 def teardown_function():
     database.execute(text("SET FOREIGN_KEY_CHECKS=0"))
@@ -61,6 +81,39 @@ def teardown_function():
 def test_ping(api):
     resp = api.get('/ping')
     assert b'pong' in resp.data
+
+
+def test_login(api):
+    resp = api.post(
+        '/login',
+        data = json.dumps({'email' : 'test@gmail.com', 'password' : 'test password'}),
+        content_type = 'application/json'
+    )
+    assert b"access_token" in resp.data
+
+
+def test_unauthorized(api):
+    # access token이 없이는 401 응답을 리턴하는지를 확인
+    resp = api.post(
+        '/tweet',
+        data = json.dumps({'tweet' : "Hello World!"}),
+        content_type = 'application/json',
+    )
+    assert resp.status_code == 401
+
+    resp = api.post(
+        '/follow',
+        data = json.dumps({'follow' : 2}),
+        content_type = 'application/json'
+    )
+    assert resp.status_code == 401
+
+    resp = api.post(
+        '/unfollow',
+        data = json.dumps({'unfollow' : 2}),
+        content_type = 'application/json'
+    )
+    assert resp.status_code == 401
 
 
 def test_tweet(api):
@@ -95,4 +148,103 @@ def test_tweet(api):
                 'tweet' : "Hello World!"
             }
         ]
+    }
+
+
+def test_follow(api):
+    # 로그인
+    resp = api.post(
+        '/login',
+        data = json.dumps({'email' : 'test@gmail.com', 'password' : 'test password'}),
+        content_type = 'application/json'
+    )
+    resp_json = json.loads(resp.data.decode('utf-8'))
+    access_token = resp_json['access_token']
+
+    # 먼저 사용자 1의 tweet 확인해서 tweet 리스트가 비어 있는 것을 확인
+    resp = api.get(f'/timeline/1')
+    tweets = json.loads(resp.data.decode('utf-8'))
+    assert resp.status_code == 200
+    assert tweets == {
+        'user_id' : 1,
+        'timeline' : [ ]
+    }
+
+    # follow 사용자 아이디 = 2
+    resp = api.post(
+        '/follow',
+        data = json.dumps({'follow' : 2}),
+        content_type = 'application/json',
+        headers = {'Authorization' : access_token}
+    )
+    assert resp.status_code == 200
+
+    # 이제 사용자 1의 tweet 확인해서 사용자 2의 tweet이 리턴되는 것을 확인
+    resp = api.get(f'/timeline/1')
+    tweets = json.loads(resp.data.decode('utf-8'))
+
+    assert resp.status_code == 200
+    assert tweets == {
+        'user_id' : 1,
+        'timeline' : [
+            {
+                'user_id' : 2,
+                'tweet' : "Hello World!"
+            }
+        ]
+    }
+
+
+def test_unfollow(api):
+    # 로그인
+    resp = api.post(
+        '/login',
+        data = json.dumps({'email' : 'test@gmail.com', 'password' : 'test password'}),
+        content_type = 'application/json'
+    )
+    resp_json = json.loads(resp.data.decode('utf-8'))
+    access_token = resp_json['access_token']
+
+    # follow 사용자 아이디 = 2
+    resp = api.post(
+        '/follow',
+        data = json.dumps({'follow' : 2}),
+        content_type = 'application/json',
+        headers = {'Authorization' : access_token}
+    )
+    assert resp.status_code == 200
+
+    # 이제 사용자 1의 tweet 확인해서 사용자 2의 tweet이 리턴되는 것을 확인
+    resp = api.get(f'/timeline/1')
+    tweets = json.loads(resp.data.decode('utf-8'))
+
+    assert resp.status_code == 200
+    assert tweets == {
+        'user_id' : 1,
+        'timeline' : [
+            {
+                'user_id' : 2,
+                'tweet' : "Hello World!"
+            }
+        ]
+    }
+
+
+    # follow 사용자 아이디 = 2
+    resp = api.post(
+        '/unfollow',
+        data = json.dumps({'unfollow' : 2}),
+        content_type = 'application/json',
+        headers = {'Authorization' : access_token}
+    )
+    assert resp.status_code == 200
+
+    # 이제 사용자 1의 tweet 확인해서 유저 2의 tweet이 더 이상 리턴되지 않는 것을 확인
+    resp = api.get(f'/timeline/1')
+    tweets = json.loads(resp.data.decode('utf-8'))
+
+    assert resp.status_code == 200
+    assert tweets == {
+        'user_id' : 1,
+        'timeline' : [ ]
     }
