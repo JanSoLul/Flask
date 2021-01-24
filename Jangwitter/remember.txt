@@ -1,0 +1,5 @@
+ssh
+ssh -i ~/Jangwitter.pem ubuntu@3.34.123.218
+
+mysql rds
+mysql -h python-backend-test.cbaqfqupuoaf.ap-northeast-2.rds.amazonaws.com -u root -p
