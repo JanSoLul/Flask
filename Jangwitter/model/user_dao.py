@@ -5,7 +5,7 @@ class UserDao:
         self.db = database
 
 
-    def inser_user(self, user):
+    def insert_user(self, user):
         return self.db.execute(text("""
             INSERT INTO users (
                 name,
@@ -28,10 +28,10 @@ class UserDao:
                 hashed_password
             FROM users
             WHERE email = :email
-        """), {'email' : email}).getchone()
+        """), {'email' : email}).fetchone()
 
         return {
-            'id' : row['id']
+            'id' : row['id'],
             'hashed_password' : row['hashed_password']
         } if row else None
 

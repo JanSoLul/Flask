@@ -35,6 +35,6 @@ def create_app(test_config = None):
     services.tweet_service = TweetService(tweet_dao)
 
     # endpoint들 생성
-    create_endpoint(app, services)
+    create_endpoints(app, services)
 
     return app
